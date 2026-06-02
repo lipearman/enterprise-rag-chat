@@ -1,0 +1,12 @@
+# ── Pipeline / KB-building scripts (01_crawl → 09_embed_faq) ────────────────
+# Install on the BUILD machine only, not on the production API server.
+#
+# pip install -r requirements.txt -r requirements-pipeline.txt
+
+python-dotenv>=1.0
+requests>=2.31
+tqdm
+aiohttp
+beautifulsoup4
+lxml
+supabase

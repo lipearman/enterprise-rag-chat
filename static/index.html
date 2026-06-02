@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Enterprise RAG AI</title>
+  <link rel="stylesheet" href="/static/style.css?v=3" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">RAG</div>
+        <div>
+          <h1>Enterprise RAG AI</h1>
+          <p>Ollama Local / Cloud</p>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-title">Provider</div>
+        <div class="provider-card">
+          <div><span class="label">Mode</span><strong id="providerMode">-</strong></div>
+          <div><span class="label">Base URL</span><code id="providerUrl">-</code></div>
+          <div><span class="label">Chat Model</span><code id="providerModel">-</code></div>
+        </div>
+        <button id="reloadProvider" class="ghost-btn">Reload Provider</button>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">Options</div>
+        <label class="switch-row">
+          <span>ใช้ Enter เพื่อส่ง</span>
+          <input id="enterToSend" type="checkbox" checked />
+        </label>
+        <label class="switch-row">
+          <span>บันทึกประวัติใน browser</span>
+          <input id="saveHistory" type="checkbox" checked />
+        </label>
+        <button id="clearChat" class="danger-btn">Clear Chat</button>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">Knowledge Base</div>
+        <div id="kbList" class="kb-list">
+          <div class="kb-loading">กำลังโหลด KB…</div>
+        </div>
+      </section>
+
+      <section class="panel hints">
+        <div class="panel-title">ตัวอย่างคำถาม</div>
+        <button class="prompt-chip">สรุปข้อมูลจากเอกสารที่มี</button>
+        <button class="prompt-chip">Marine Insurance คุ้มครองอะไรบ้าง</button>
+        <button class="prompt-chip">ช่วยอธิบายเป็น bullet ภาษาไทย</button>
+      </section>
+    </aside>
+
+    <main class="chat-area">
+      <header class="topbar">
+        <div>
+          <h2>Chat</h2>
+          <p id="statusText">พร้อมใช้งาน</p>
+        </div>
+        <div class="top-actions">
+          <button id="copyLast" class="ghost-btn">Copy Last</button>
+          <button id="stopBtn" class="ghost-btn" disabled>Stop</button>
+        </div>
+      </header>
+
+      <div id="mobileKbBar" class="mobile-kb-bar">
+        <span class="mobile-kb-label">KB:</span>
+        <div id="mobileKbList" class="mobile-kb-list"></div>
+      </div>
+
+      <section id="messages" class="messages" aria-live="polite"></section>
+
+      <form id="chatForm" class="composer">
+        <div class="composer-inner">
+          <textarea id="messageInput" rows="1" placeholder="พิมพ์คำถาม เช่น สวัสดี หรือถามข้อมูลจาก RAG..."></textarea>
+          <button id="sendBtn" type="submit" title="Send (Enter)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+      </form>
+    </main>
+  </div>
+
+  <script src="/static/app.js?v=3"></script>
+</body>
+</html>

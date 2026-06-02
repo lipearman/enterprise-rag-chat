@@ -1,0 +1,9 @@
+# ── Production (API server) ─────────────────────────────────────────────────
+fastapi>=0.111
+uvicorn[standard]>=0.29
+python-dotenv>=1.0
+requests>=2.31
+
+# ── Pipeline / KB-building scripts (01_crawl → 09_embed_faq) ────────────────
+# Not needed on the production API server — install only on the build machine.
+# pip install -r requirements-pipeline.txt

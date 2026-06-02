@@ -1,0 +1,70 @@
+services:
+  - type: web
+    name: enterprise-rag-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+
+    envVars:
+      # ── Supabase ────────────────────────────────────────────────────────────
+      - key: SUPABASE_URL
+        sync: false          # set in Render dashboard
+
+      - key: SUPABASE_KEY
+        sync: false
+
+      # ── Ollama Provider ──────────────────────────────────────────────────────
+      - key: OLLAMA_PROVIDER
+        value: cloud         # "cloud" or "local"
+
+      - key: OLLAMA_CLOUD_BASE_URL
+        sync: false
+
+      - key: OLLAMA_CLOUD_API_KEY
+        sync: false
+
+      - key: OLLAMA_CLOUD_CHAT_MODEL
+        value: qwen2.5:14b-instruct
+
+      - key: OLLAMA_CLOUD_GENERATE_MODEL
+        value: qwen2.5:14b-instruct
+
+      # ── Embedding ────────────────────────────────────────────────────────────
+      - key: OLLAMA_EMBED_BASE_URL
+        sync: false
+
+      - key: EMBED_MODEL
+        value: bge-m3:latest
+
+      - key: EMBED_DIMENSION
+        value: "1024"
+
+      # ── Tenant ───────────────────────────────────────────────────────────────
+      - key: COMPANY_CODE
+        value: mgcars
+
+      # ── RAG Feature Flags ────────────────────────────────────────────────────
+      - key: RAG_MODE
+        value: full
+
+      - key: ENABLE_AI_INTENT
+        value: "true"
+
+      - key: ENABLE_QUERY_REWRITE
+        value: "false"
+
+      - key: ENABLE_RERANKER
+        value: "false"
+
+      - key: ENABLE_GROUNDING
+        value: "false"
+
+      - key: ENABLE_METADATA_SEARCH
+        value: "false"
+
+      - key: ENABLE_KNOWLEDGE_SEARCH
+        value: "false"
+
+      - key: ENABLE_RELATIONSHIP_SEARCH
+        value: "false"
