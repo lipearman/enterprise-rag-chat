@@ -22,6 +22,10 @@ logs/
 crawl_report.csv
 crawl_report.xlsx
 
+# ── Generated diagrams ────────────────────────────────────────────────────────
+architecture.jpg
+architecture.png
+
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

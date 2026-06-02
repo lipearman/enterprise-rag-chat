@@ -1,21 +1,40 @@
-# -*- coding: utf-8 -*-
-import sys, requests, math
-sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, ".")
-from _common import CRAWL_DIR, EMBED_BASE_URL, EMBED_MODEL, clean_text, read_jsonl
+"""
+Capture the actual 500 error body from Ollama + find exact token threshold.
+"""
+import os, requests
+from pathlib import Path
+from dotenv import load_dotenv
 
-chunks = read_jsonl(f"{CRAWL_DIR}/chunks.jsonl")
+load_dotenv(Path(__file__).parent / ".env")
+EMBED_URL  = os.getenv("OLLAMA_EMBED_BASE_URL", "http://llm-server:11434")
+EMBED_MODEL = os.getenv("EMBED_MODEL", "bge-m3:latest")
 
-for i, r in enumerate(chunks[:10], 1):
-    text_full = clean_text(r.get("text_for_embedding") or "")[:1800]
-    text_content = clean_text(r.get("content") or "")[:1200]
+def embed_raw(text, model=None):
+    m = model or EMBED_MODEL
+    r = requests.post(f"{EMBED_URL}/api/embed",
+                      json={"model": m, "input": [text]},
+                      timeout=30)
+    return r.status_code, r.text[:500]
 
-    # Try content only
-    status_content = "N/A"
-    if text_content:
-        res = requests.post(f"{EMBED_BASE_URL}/api/embed",
-                           json={"model": EMBED_MODEL, "input": text_content}, timeout=10)
-        status_content = f"OK dim={len(res.json().get('embeddings',[[]])[0])}" if res.status_code==200 else f"FAIL {res.text[:50]}"
+# Get the actual error message
+english_500 = "The quick brown fox jumps over the lazy dog. " * 11
+status, body = embed_raw(english_500[:500])
+print(f"English 500 chars: status={status}")
+print(f"Response body: {body}")
+print()
 
-    print(f"Chunk {i}: url={r.get('url','')[-40:]}")
-    print(f"  content_len={len(text_content)}, content_status={status_content}")
+# Find exact char boundary for ASCII
+for n in [200, 240, 250, 256, 257, 258, 260, 300]:
+    text = "a" * n
+    status, body = embed_raw(text)
+    ok = "embeddings" in body
+    print(f"  {n} × 'a': status={status}  {'OK' if ok else 'FAIL: '+body[:80]}")
+
+print()
+# Find exact char boundary for Thai
+thai_unit = "ก"  # single Thai char (3 UTF-8 bytes)
+for n in [100, 200, 256, 300, 400, 500, 600]:
+    text = thai_unit * n
+    status, body = embed_raw(text)
+    ok = "embeddings" in body
+    print(f"  {n} × Thai 'ก': status={status}  {'OK' if ok else 'FAIL: '+body[:80]}")
