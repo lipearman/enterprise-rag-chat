@@ -6,6 +6,7 @@ const els = {
   stopBtn: document.getElementById('stopBtn'),
   statusText: document.getElementById('statusText'),
   providerMode: document.getElementById('providerMode'),
+  providerRagMode: document.getElementById('providerRagMode'),
   providerUrl: document.getElementById('providerUrl'),
   providerModel: document.getElementById('providerModel'),
   reloadProvider: document.getElementById('reloadProvider'),
@@ -21,6 +22,62 @@ let controller = null;
 let lastAssistantText = '';
 let selectedKb = '';
 const STORAGE_KEY = 'enterprise-rag-chat-history-v3';
+
+const KB_PROMPTS = {
+  locktonwattana: [
+    'D&O ประกันอะไรบ้าง',
+    'ถ้าธุรกิจหยุดชะงัก มีประกันช่วยได้ไหม',
+    'Lockton Wattana เป็นบริษัทอะไร',
+  ],
+  deves: [
+    'เทเวศทำกิจกรรมอะไรบ้าง',
+    'จะเดินทางไปเทเวศยังไง',
+    'ดาวน์โหลดแบบฟอร์มเคลมได้ที่ไหน',
+  ],
+  mgcars: [
+    'MG มีรถ EV รุ่นไหนบ้าง',
+    'ราคา MG ZS เท่าไหร่',
+    'ติดต่อ MG ได้ยังไง',
+  ],
+};
+
+function updatePromptChips(code) {
+  // greeting chips
+  const greeting = document.getElementById('greeting');
+  const greetingChips = document.getElementById('greetingChips');
+  const greetingSub = document.getElementById('greetingSub');
+  if (!greetingChips) return;
+
+  const questions = KB_PROMPTS[code] || [];
+  const label = Object.entries({
+    locktonwattana: 'Lockton Wattana',
+    deves: 'Deves Insurance',
+    mgcars: 'MG Cars Thailand',
+  }).find(([k]) => k === code)?.[1] || code;
+
+  if (greetingSub) greetingSub.textContent = label ? `ถามเกี่ยวกับ ${label} ได้เลย` : 'เลือก Knowledge Base แล้วถามได้เลย';
+
+  greetingChips.innerHTML = questions.map(q =>
+    `<button class="greeting-chip" type="button">${q}</button>`
+  ).join('');
+  greetingChips.querySelectorAll('.greeting-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      els.input.value = btn.textContent.trim();
+      els.input.focus();
+      els.form.requestSubmit();
+    });
+  });
+}
+
+function showGreeting() {
+  const g = document.getElementById('greeting');
+  if (g) g.classList.remove('hidden');
+}
+
+function hideGreeting() {
+  const g = document.getElementById('greeting');
+  if (g) g.classList.add('hidden');
+}
 
 function nowText() {
   return new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
@@ -49,6 +106,7 @@ function buildSourcesHtml(sources) {
 }
 
 function addMessage(role, text, save = true, sources = []) {
+  hideGreeting();
   const item = document.createElement('div');
   item.className = `message ${role}`;
   const sourcesHtml = role === 'assistant' ? buildSourcesHtml(sources) : '';
@@ -93,11 +151,13 @@ function saveHistory() {
 function loadHistory() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) {
-    addMessage('assistant', 'สวัสดีครับ ผมพร้อมช่วยตอบคำถามจาก Enterprise RAG และทดสอบ Ollama Local/Cloud แล้วครับ', false);
+    // ไม่มีประวัติ — แสดง greeting (อยู่ใน HTML แล้ว)
     return;
   }
   try {
-    JSON.parse(raw).forEach(m => addMessage(m.role, m.text, false, m.sources || []));
+    const history = JSON.parse(raw);
+    if (history.length === 0) return;
+    history.forEach(m => addMessage(m.role, m.text, false, m.sources || []));
   } catch {
     localStorage.removeItem(STORAGE_KEY);
   }
@@ -110,6 +170,7 @@ async function loadProvider() {
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
     els.providerMode.textContent = data.provider || '-';
+    els.providerRagMode.textContent = data.rag_mode || '-';
     els.providerUrl.textContent = data.base_url || '-';
     els.providerModel.textContent = data.chat_model || '-';
     els.statusText.textContent = `พร้อมใช้งานผ่าน ${data.provider || 'provider'}`;
@@ -131,6 +192,20 @@ function selectKb(code, label) {
     b.classList.toggle('active', b.dataset.code === code)
   );
   updateKbBadge(label);
+  updatePromptChips(code);
+
+  // clear chat และคืน greeting
+  els.messages.innerHTML = '';
+  localStorage.removeItem(STORAGE_KEY);
+  els.messages.insertAdjacentHTML('afterbegin', `
+    <div id="greeting" class="greeting">
+      <div class="greeting-logo">RAG</div>
+      <h2 class="greeting-title">สวัสดีครับ 👋</h2>
+      <p class="greeting-sub" id="greetingSub">ถามได้เลย</p>
+      <div class="greeting-chips" id="greetingChips"></div>
+    </div>
+  `);
+  updatePromptChips(code);
 }
 
 async function loadKb() {
@@ -167,7 +242,10 @@ async function loadKb() {
     });
 
     const active = data.items.find(k => k.code === selectedKb);
-    if (active) updateKbBadge(active.label);
+    if (active) {
+      updateKbBadge(active.label);
+      updatePromptChips(active.code);
+    }
   } catch {
     els.kbList.innerHTML = '<div class="kb-loading">โหลด KB ไม่สำเร็จ</div>';
     els.mobileKbList.innerHTML = '';
@@ -242,19 +320,21 @@ els.reloadProvider.addEventListener('click', loadProvider);
 els.clearChat.addEventListener('click', () => {
   els.messages.innerHTML = '';
   localStorage.removeItem(STORAGE_KEY);
-  addMessage('assistant', 'ล้างประวัติแล้วครับ เริ่มถามใหม่ได้เลย', false);
+  // คืน greeting กลับมา
+  els.messages.insertAdjacentHTML('afterbegin', `
+    <div id="greeting" class="greeting">
+      <div class="greeting-logo">RAG</div>
+      <h2 class="greeting-title">สวัสดีครับ 👋</h2>
+      <p class="greeting-sub" id="greetingSub">ถามได้เลย</p>
+      <div class="greeting-chips" id="greetingChips"></div>
+    </div>
+  `);
+  updatePromptChips(selectedKb);
 });
 els.copyLast.addEventListener('click', async () => {
   if (!lastAssistantText) return;
   await navigator.clipboard.writeText(lastAssistantText);
   els.statusText.textContent = 'Copy คำตอบล่าสุดแล้ว';
-});
-
-document.querySelectorAll('.prompt-chip').forEach(btn => {
-  btn.addEventListener('click', () => {
-    els.input.value = btn.textContent.trim();
-    els.input.focus();
-  });
 });
 
 loadHistory();

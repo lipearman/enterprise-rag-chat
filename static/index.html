@@ -21,10 +21,18 @@
         <div class="panel-title">Provider</div>
         <div class="provider-card">
           <div><span class="label">Mode</span><strong id="providerMode">-</strong></div>
+          <div><span class="label">RAG Mode</span><strong id="providerRagMode">-</strong></div>
           <div><span class="label">Base URL</span><code id="providerUrl">-</code></div>
           <div><span class="label">Chat Model</span><code id="providerModel">-</code></div>
         </div>
         <button id="reloadProvider" class="ghost-btn">Reload Provider</button>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">Knowledge Base</div>
+        <div id="kbList" class="kb-list">
+          <div class="kb-loading">กำลังโหลด KB…</div>
+        </div>
       </section>
 
       <section class="panel">
@@ -40,19 +48,6 @@
         <button id="clearChat" class="danger-btn">Clear Chat</button>
       </section>
 
-      <section class="panel">
-        <div class="panel-title">Knowledge Base</div>
-        <div id="kbList" class="kb-list">
-          <div class="kb-loading">กำลังโหลด KB…</div>
-        </div>
-      </section>
-
-      <section class="panel hints">
-        <div class="panel-title">ตัวอย่างคำถาม</div>
-        <button class="prompt-chip">สรุปข้อมูลจากเอกสารที่มี</button>
-        <button class="prompt-chip">Marine Insurance คุ้มครองอะไรบ้าง</button>
-        <button class="prompt-chip">ช่วยอธิบายเป็น bullet ภาษาไทย</button>
-      </section>
     </aside>
 
     <main class="chat-area">
@@ -72,7 +67,14 @@
         <div id="mobileKbList" class="mobile-kb-list"></div>
       </div>
 
-      <section id="messages" class="messages" aria-live="polite"></section>
+      <section id="messages" class="messages" aria-live="polite">
+        <div id="greeting" class="greeting">
+          <div class="greeting-logo">RAG</div>
+          <h2 class="greeting-title">สวัสดีครับ 👋</h2>
+          <p class="greeting-sub" id="greetingSub">เลือก Knowledge Base แล้วถามได้เลย</p>
+          <div class="greeting-chips" id="greetingChips"></div>
+        </div>
+      </section>
 
       <form id="chatForm" class="composer">
         <div class="composer-inner">

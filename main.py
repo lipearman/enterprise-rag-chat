@@ -126,6 +126,7 @@ def provider():
     p = OllamaProvider()
     return {
         "provider": p.config.provider,
+        "rag_mode": os.getenv("RAG_MODE", "full"),
         "base_url": p.config.base_url,
         "chat_model": p.config.chat_model,
         "generate_model": p.config.generate_model,

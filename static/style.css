@@ -82,7 +82,57 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 #reloadProvider { width: 100%; margin-top: 14px; }
 
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; color: var(--muted); }
-.prompt-chip { width: 100%; margin-top: 8px; background: rgba(56,189,248,0.12); color: #e0f2fe; border: 1px solid rgba(56,189,248,0.25); text-align: left; }
+.prompt-chip { width: 100%; margin-top: 6px; background: rgba(56,189,248,0.12); color: #e0f2fe; border: 1px solid rgba(56,189,248,0.25); text-align: left; }
+
+/* Greeting screen */
+.greeting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex: 1;
+  padding: 48px 24px 160px;
+  gap: 12px;
+}
+.greeting.hidden { display: none; }
+.greeting-logo {
+  width: 64px; height: 64px; border-radius: 22px;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, #38bdf8, #818cf8);
+  color: #020617; font-weight: 900; font-size: 20px;
+  margin-bottom: 8px;
+}
+.greeting-title { margin: 0; font-size: 26px; font-weight: 800; }
+.greeting-sub { margin: 0; color: var(--muted); font-size: 15px; }
+.greeting-chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+  width: 100%;
+  max-width: 680px;
+}
+.greeting-chip {
+  background: rgba(56,189,248,0.10);
+  color: #e0f2fe;
+  border: 1px solid rgba(56,189,248,0.25);
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  width: auto;
+}
+.greeting-chip:hover {
+  background: rgba(56,189,248,0.2);
+  border-color: rgba(56,189,248,0.5);
+  color: #fff;
+}
 
 .chat-area { display: grid; grid-template-rows: auto auto 1fr; position: relative; min-width: 0; height: 100%; overflow: hidden; }
 .topbar {
@@ -94,7 +144,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .topbar p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 .top-actions { display: flex; gap: 10px; }
 
-.messages { padding: 28px 28px 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.messages { padding: 28px 28px 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; min-height: 100%; }
 .message { max-width: 900px; display: grid; gap: 8px; }
 .message.user { align-self: flex-end; }
 .bubble {
