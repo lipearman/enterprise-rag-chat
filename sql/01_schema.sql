@@ -30,7 +30,9 @@ create table if not exists company_facts (
     language text,
     source_url text,
     confidence float default 1,
-    created_at timestamptz default now()
+    company_code text,
+    created_at timestamptz default now(),
+    updated_at timestamptz default now()
 );
 
 create table if not exists staff_contacts (
@@ -43,7 +45,9 @@ create table if not exists staff_contacts (
     language text,
     source_url text,
     confidence float default 1,
-    created_at timestamptz default now()
+    company_code text,
+    created_at timestamptz default now(),
+    updated_at timestamptz default now()
 );
 
 create table if not exists faq_items (
@@ -77,7 +81,9 @@ create table if not exists metadata_items (
     entities jsonb,
     keywords jsonb,
     intent_tags jsonb,
-    created_at timestamptz default now()
+    company_code text,
+    created_at timestamptz default now(),
+    updated_at timestamptz default now()
 );
 
 create table if not exists knowledge_items (
@@ -92,7 +98,9 @@ create table if not exists knowledge_items (
     question text,
     answer text,
     facts jsonb,
-    created_at timestamptz default now()
+    company_code text,
+    created_at timestamptz default now(),
+    updated_at timestamptz default now()
 );
 
 create table if not exists relationships (
@@ -103,8 +111,11 @@ create table if not exists relationships (
     subject_type text,
     object_type text,
     source_url text,
+    source_type text,
     confidence float default 0.8,
-    created_at timestamptz default now()
+    company_code text,
+    created_at timestamptz default now(),
+    updated_at timestamptz default now()
 );
 
 alter table documents enable row level security;
