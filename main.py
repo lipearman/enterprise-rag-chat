@@ -74,54 +74,38 @@ _KB_LABELS: dict[str, str] = {
 
 @app.get("/kb")
 def list_kb():
-    """Return available KB tenants with doc/faq counts.
-    Falls back to companies table data when Supabase is slow/unavailable."""
+    """Return available KB tenants with doc/faq counts via PostgREST REST API."""
     url = os.getenv("SUPABASE_URL", "")
     key = os.getenv("SUPABASE_KEY", "")
-    hdr = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json"}
     default_code = os.getenv("COMPANY_CODE", "")
 
-    # --- Try fast count query (3 s timeout) ---
+    count_hdr = {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Prefer": "count=exact",
+    }
+
+    # รวม company_codes จาก _KB_LABELS + COMPANY_CODE env
+    known = list(_KB_LABELS.keys())
+    if default_code and default_code not in known:
+        known.append(default_code)
+
     rows: list[dict] = []
-    try:
-        sql = """
-            SELECT company_code,
-                   (SELECT COUNT(*) FROM documents  d WHERE d.company_code = t.company_code) AS docs,
-                   (SELECT COUNT(*) FROM faq_items  f WHERE f.company_code = t.company_code) AS faqs
-            FROM (SELECT DISTINCT company_code FROM documents
-                  UNION SELECT DISTINCT company_code FROM faq_items) t
-            ORDER BY company_code;
-        """
-        r = _requests.post(f"{url}/pg/query", headers=hdr, json={"query": sql}, timeout=3)
-        if r.ok:
-            data = r.json()
-            if isinstance(data, list):
-                rows = data
-    except Exception:
-        pass  # fall through to companies-table fallback
-
-    # --- Fallback: read companies table (also 3 s timeout) ---
-    if not rows:
+    for code in known:
         try:
-            r2 = _requests.post(
-                f"{url}/pg/query", headers=hdr,
-                json={"query": "SELECT company_code, company_name FROM companies WHERE is_active ORDER BY company_code;"},
-                timeout=3,
+            rd = _requests.get(
+                f"{url}/rest/v1/documents?company_code=eq.{code}&select=id&limit=1",
+                headers=count_hdr, timeout=5,
             )
-            if r2.ok:
-                data2 = r2.json()
-                if isinstance(data2, list):
-                    rows = [{"company_code": row["company_code"], "docs": 0, "faqs": 0}
-                            for row in data2]
+            rf = _requests.get(
+                f"{url}/rest/v1/faq_items?company_code=eq.{code}&select=id&limit=1",
+                headers=count_hdr, timeout=5,
+            )
+            doc_count = int(rd.headers.get("content-range", "0/0").split("/")[-1]) if rd.ok else 0
+            faq_count = int(rf.headers.get("content-range", "0/0").split("/")[-1]) if rf.ok else 0
         except Exception:
-            pass
-
-    # --- Last resort: hardcode known companies from env / _KB_LABELS ---
-    if not rows:
-        known = list(_KB_LABELS.keys())
-        if default_code and default_code not in known:
-            known.append(default_code)
-        rows = [{"company_code": c, "docs": 0, "faqs": 0} for c in known]
+            doc_count = faq_count = 0
+        rows.append({"company_code": code, "docs": doc_count, "faqs": faq_count})
 
     return {
         "default": default_code,
