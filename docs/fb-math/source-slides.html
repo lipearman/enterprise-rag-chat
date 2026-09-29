@@ -1,0 +1,189 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8">
+<link rel="stylesheet" href="katex/katex.min.css">
+<script src="katex/katex.min.js"></script>
+<script src="katex/contrib/auto-render.min.js"></script>
+<style>
+:root{--bg:#0f1417;--card:#161e22;--ink:#e8eee9;--mut:#93a39b;--acc:#4cc9a6;--warn:#f0a064;--blue:#86aeea;--line:#2a3530}
+*{box-sizing:border-box}body{margin:0;background:#000}
+.s{width:1080px;min-height:1350px;background:var(--bg);color:var(--ink);font:28px/1.6 "Sarabun","Noto Sans Thai",sans-serif;padding:70px 72px 110px;position:relative;overflow:hidden;margin-bottom:10px}
+.tag{font:600 22px "IBM Plex Mono",monospace;color:var(--acc);letter-spacing:.1em}
+h1{font:700 54px/1.25 "Noto Sans Thai",sans-serif;margin:12px 0 28px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 30px;margin:20px 0}
+.box.eq{font-size:34px;text-align:center;border-color:var(--acc)}
+.mut{color:var(--mut);font-size:25px}
+.warn{color:var(--warn)}.acc{color:var(--acc)}.blue{color:var(--blue)}
+table{width:100%;border-collapse:collapse;font-size:26px}td,th{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mut);font-size:21px}
+.foot{position:absolute;left:72px;right:72px;bottom:44px;display:flex;justify-content:space-between;font:20px "IBM Plex Mono",monospace;color:var(--mut)}
+.katex{font-size:1.05em}
+ul{margin:8px 0;padding-left:30px}li{margin:4px 0}
+</style></head><body>
+
+<!-- 0 cover -->
+<section class="s">
+<div class="tag">RAG · RUNTIME · MATHEMATICAL VIEW</div>
+<h1>หลังจากกด “ส่งคำถาม”<br>เกิดอะไรขึ้นบ้าง<br><span class="acc">ในภาษาคณิตศาสตร์</span></h1>
+<p class="mut">ทั้ง pipeline เขียนเป็นการประกอบฟังก์ชัน (function composition) ได้ดังนี้</p>
+<div class="box eq">$$a \;=\; \mathrm{LLM}_{\theta}\Big(\,S \,\oplus\, \mathcal{C}\big(\,\mathcal{R}_{k,\tau}(\,f(q)\,) \,\cup\, \mathcal{F}(I(q))\big),\; q\Big)$$</div>
+<table>
+<tr><th>สัญลักษณ์</th><th>ความหมาย</th><th>ขั้น</th></tr>
+<tr><td>$I(q)$</td><td>จำแนก intent ของคำถาม</td><td>1</td></tr>
+<tr><td>$f(q)\in\mathbb{R}^{1024}$</td><td>embedding ด้วย bge-m3</td><td>2</td></tr>
+<tr><td>$\cos(\mathbf{q},\mathbf{d})$</td><td>วัดความคล้ายของเวกเตอร์</td><td>3</td></tr>
+<tr><td>IVFFlat</td><td>ค้นเพื่อนบ้านใกล้สุดแบบประมาณ</td><td>4</td></tr>
+<tr><td>$\mathcal{R}_{k,\tau}$</td><td>คัด top-k ที่คะแนน $\ge\tau$</td><td>5</td></tr>
+<tr><td>$\mathcal{F}$, $\mathcal{C}$</td><td>ค้นด้วย SQL และประกอบ context</td><td>6</td></tr>
+<tr><td>$\mathrm{LLM}_\theta$</td><td>สร้างคำตอบทีละ token</td><td>7</td></tr>
+<tr><td>$\mathcal{S}$</td><td>จัดอันดับแหล่งอ้างอิง</td><td>8</td></tr>
+</table>
+<div class="foot"><span>Enterprise RAG Chat</span><span>0 / 8</span></div>
+</section>
+
+<!-- 1 intent -->
+<section class="s">
+<div class="tag">STEP 1 · INTENT ROUTER</div>
+<h1>ฟังก์ชันจำแนกคำถาม<br>แบบกำหนดลำดับความสำคัญ</h1>
+<p>ให้ $K_{\text{staff}}, K_{\text{fact}}, K_{\text{claim}}$ เป็นเซตของ keyword และ $k \sqsubseteq q$ แทน “$k$ เป็น substring ของ $q$” (หลังแปลงเป็นตัวพิมพ์เล็ก)</p>
+<div class="box eq">$$I(q)=\begin{cases}\text{staff} & \exists k\in K_{\text{staff}}: k\sqsubseteq q\\ \text{fact} & \exists k\in K_{\text{fact}}: k\sqsubseteq q\\ \text{claim} & \exists k\in K_{\text{claim}}: k\sqsubseteq q\\ \text{knowledge} & \text{otherwise}\end{cases}$$</div>
+<p>เป็น <b>decision list</b> ที่ตรวจเงื่อนไขจากบนลงล่าง เงื่อนไขแรกที่เป็นจริงจะถูกเลือก ความซับซ้อนคือ</p>
+<div class="box eq">$$O\big(|K|\cdot|q|\big),\qquad |K| = 11+13+6 = 30$$</div>
+<table>
+<tr><th>ตัวอย่าง $q$</th><th>keyword ที่พบ</th><th>$I(q)$</th></tr>
+<tr><td>“เบอร์โทรบริษัท”</td><td>เบอร์, โทร $\in K_{\text{fact}}$</td><td class="acc">fact</td></tr>
+<tr><td>“ใครดูแลลูกค้า”</td><td>ใครดูแล $\in K_{\text{staff}}$</td><td class="acc">staff</td></tr>
+<tr><td>“ประกันรถมีกี่ประเภท”</td><td>—</td><td class="acc">knowledge</td></tr>
+</table>
+<p class="mut">ถ้าเปิด ENABLE_AI_INTENT ระบบจะให้ LLM จำแนกแทน ด้วย $T=0$ ซึ่งเท่ากับเลือก $\arg\max_c P_\theta(c\mid q)$ และใช้ $I(q)$ ข้างบนเป็น fallback</p>
+<div class="foot"><span>app/rag.py · _detect_intent_rule()</span><span>1 / 8</span></div>
+</section>
+
+<!-- 2 embedding -->
+<section class="s">
+<div class="tag">STEP 2 · EMBEDDING</div>
+<h1>แปลงข้อความเป็นเวกเตอร์<br>ในปริภูมิ $\mathbb{R}^{1024}$</h1>
+<div class="box eq">$$f:\Sigma^{*}\rightarrow\mathbb{R}^{1024},\qquad \mathbf{q}=f(q),\qquad \|\mathbf{q}\|_2=1$$</div>
+<p>ตรวจความถูกต้องก่อนใช้: เวกเตอร์ใช้ได้ก็ต่อเมื่อทุกองค์ประกอบเป็นจำนวนจำกัด</p>
+<div class="box eq">$$\text{valid}(\mathbf{v}) \iff \mathbf{v}\neq\varnothing \;\wedge\; \forall i:\; v_i\in\mathbb{R}\setminus\{\pm\infty,\text{NaN}\}$$</div>
+<p><b class="warn">Fallback เมื่อได้ NaN:</b> แบ่ง $q$ เป็นช่วงละ $w=150$ ตัวอักษร</p>
+<div class="box eq">$$s_j = q[\,jw : (j+1)w\,],\quad j=0,\dots,\Big\lceil \tfrac{|q|}{w}\Big\rceil-1$$
+$$V=\{\,f(s_j)\;:\;\text{valid}(f(s_j))\,\}$$
+$$\bar{\mathbf{v}}=\frac{1}{|V|}\sum_{\mathbf{v}\in V}\mathbf{v},\qquad \hat{\mathbf{q}}=\frac{\bar{\mathbf{v}}}{\|\bar{\mathbf{v}}\|_2}$$</div>
+<p class="mut">การหารด้วย $\|\bar{\mathbf v}\|$ (L2 normalization) ทำให้ $\hat{\mathbf q}$ อยู่บน hypersphere หนึ่งหน่วย จึงยังเทียบ cosine กับเวกเตอร์เอกสารได้ถูกต้อง · ขนาดข้อมูล: $1024\times 4\,\text{bytes}=4\,\text{KB}$ ต่อเวกเตอร์</p>
+<div class="foot"><span>app/rag.py · _embed_query()</span><span>2 / 8</span></div>
+</section>
+
+<!-- 3 cosine -->
+<section class="s">
+<div class="tag">STEP 3 · COSINE SIMILARITY</div>
+<h1>วัด “ทิศทาง” ไม่ใช่ “ขนาด”</h1>
+<div class="box eq">$$\operatorname{sim}(\mathbf{q},\mathbf{d})=\cos\theta=\frac{\mathbf{q}\cdot\mathbf{d}}{\|\mathbf{q}\|\,\|\mathbf{d}\|}=\frac{\sum_{i=1}^{1024} q_i d_i}{\sqrt{\sum q_i^2}\,\sqrt{\sum d_i^2}}$$</div>
+<p>pgvector ใช้ตัวดำเนินการ <span class="acc">&lt;=&gt;</span> ซึ่งให้ cosine distance ในฐานข้อมูลจึงคำนวณ $\operatorname{sim}=1-(\mathbf q \Leftrightarrow \mathbf d)$</p>
+<p><b>ตัวอย่างย่อส่วนเป็น 3 มิติ</b> <span class="mut">(ของจริงใช้ 1,024 มิติ)</span> &nbsp;$\mathbf q=(0.6,\,0.8,\,0)$</p>
+<table>
+<tr><th>เอกสาร</th><th>$\mathbf d$</th><th>$\mathbf q\cdot\mathbf d$</th><th>$\theta$</th><th>ผล ($\tau=0.40$)</th></tr>
+<tr><td>$d_1$</td><td>(0.8, 0.6, 0)</td><td>0.48+0.48 = <b>0.96</b></td><td>16.3°</td><td class="acc">ผ่าน</td></tr>
+<tr><td>$d_2$</td><td>(0, 0.6, 0.8)</td><td>0+0.48+0 = <b>0.48</b></td><td>61.3°</td><td class="acc">ผ่าน</td></tr>
+<tr><td>$d_3$</td><td>(0.28, 0, 0.96)</td><td>0.168 = <b>0.17</b></td><td>80.3°</td><td class="warn">ตัดทิ้ง</td></tr>
+</table>
+<svg width="936" height="300" viewBox="0 0 936 300">
+<g transform="translate(120,270)">
+<line x1="0" y1="0" x2="700" y2="0" stroke="#2a3530"/>
+
+<path d="M 180 0 A 180 180 0 0 0 78 -162" fill="none" stroke="#f0a064" stroke-width="1.5" stroke-dasharray="4 4"/>
+<text x="-100" y="-205" fill="#f0a064" font-size="20" font-family="IBM Plex Mono">θ ≤ 66.4° (cos ≥ 0.40)</text>
+<line x1="0" y1="0" x2="200" y2="-240" stroke="#86aeea" stroke-width="5"/><text x="208" y="-244" fill="#86aeea" font-size="24">q</text>
+<line x1="0" y1="0" x2="260" y2="-230" stroke="#4cc9a6" stroke-width="3"/><text x="268" y="-226" fill="#4cc9a6" font-size="22">d₁ (16°)</text>
+<line x1="0" y1="0" x2="360" y2="-66" stroke="#4cc9a6" stroke-width="3" opacity=".7"/><text x="368" y="-62" fill="#4cc9a6" font-size="22">d₂ (61°)</text>
+<line x1="0" y1="0" x2="520" y2="-10" stroke="#f0a064" stroke-width="3"/><text x="528" y="-4" fill="#f0a064" font-size="22">d₃ (80°)</text>
+</g></svg>
+<div class="foot"><span>sql/01_schema.sql · match_documents()</span><span>3 / 8</span></div>
+</section>
+
+<!-- 4 ivfflat -->
+<section class="s">
+<div class="tag">STEP 4 · APPROXIMATE NEAREST NEIGHBOR</div>
+<h1>IVFFlat: ไม่ต้องเทียบ<br>กับทุกเอกสาร</h1>
+<p>ตอนสร้าง index ใช้ k-means แบ่งเวกเตอร์ $N$ ตัวออกเป็น $L=100$ กลุ่ม (lists) แต่ละกลุ่มมี centroid $\boldsymbol\mu_\ell$</p>
+<div class="box eq">$$\min_{\{\boldsymbol\mu_\ell\}}\sum_{\ell=1}^{L}\sum_{\mathbf d\in P_\ell}\|\mathbf d-\boldsymbol\mu_\ell\|^2$$</div>
+<p>ตอนค้นหา ระบบจะหา centroid ที่ใกล้ $\mathbf q$ ที่สุดก่อน แล้วเทียบเฉพาะเวกเตอร์ในกลุ่มนั้น (ค่า default ของ pgvector คือ probes $=1$)</p>
+<div class="box eq">$$\ell^{*}=\arg\max_{\ell}\cos(\mathbf q,\boldsymbol\mu_\ell),\qquad \text{Candidates}=P_{\ell^{*}}$$</div>
+<p><b>จำนวนการคูณ</b> ถ้า $N=10{,}000$, $D=1024$</p>
+<table>
+<tr><th>วิธี</th><th>สูตร</th><th>จำนวนการคูณ</th></tr>
+<tr><td>Exact (เทียบทุกตัว)</td><td>$N\cdot D$</td><td>10,240,000</td></tr>
+<tr><td>IVFFlat, probes=1</td><td>$L\cdot D+\frac{N}{L}\cdot D$</td><td>204,800</td></tr>
+<tr><td class="acc">เร็วขึ้นราว</td><td></td><td class="acc"><b>50×</b></td></tr>
+</table>
+<p class="mut">สิ่งที่ต้องแลกคือ recall อาจลดลงเมื่อเอกสารที่ใกล้จริงอยู่คนละกลุ่มกับ centroid ที่เลือก เพิ่ม probes เพื่อแลก recall กับเวลาได้ · pgvector แนะนำ $L\approx N/1000$</p>
+<div class="foot"><span>ivfflat (vector_cosine_ops) lists=100</span><span>4 / 8</span></div>
+</section>
+
+<!-- 5 topk threshold -->
+<section class="s">
+<div class="tag">STEP 5 · TOP-K + THRESHOLD</div>
+<h1>คัดเลือกผลลัพธ์<br>ด้วยสองเงื่อนไข</h1>
+<div class="box eq">$$\mathcal{R}_{k,\tau}(\mathbf q)=\Big\{\,d\in\operatorname{TopK}_{k}\big(\operatorname{sim}(\mathbf q,\cdot)\big)\;:\;\operatorname{sim}(\mathbf q,d)\ge\tau\,\Big\}$$</div>
+<table>
+<tr><th>แหล่ง</th><th>$k$</th><th>$\tau$</th><th>$|\mathcal R|$ สูงสุด</th></tr>
+<tr><td>documents</td><td>6</td><td>0.40</td><td>6</td></tr>
+<tr><td>faq_items</td><td>4</td><td>0.40</td><td>4</td></tr>
+</table>
+<p><b>เรขาคณิตของ $\tau$:</b> ค่า $\tau=0.40$ ทำให้เกิด “กรวย” รอบ $\mathbf q$ บน hypersphere</p>
+<div class="box eq">$$\cos\theta\ge 0.40 \iff \theta\le\arccos(0.40)\approx 66.4^\circ$$</div>
+<p>และเนื่องจากเวกเตอร์ถูก normalize แล้ว ระยะแบบยุคลิดจึงสัมพันธ์กับ cosine โดยตรง</p>
+<div class="box eq">$$\|\mathbf q-\mathbf d\|^2 = 2-2\cos\theta\;\le\;2-2(0.40)=1.2$$</div>
+<p class="mut">$k$ เป็นเพดานบนที่ควบคุมขนาด context ส่วน $\tau$ เป็นเพดานล่างที่คุมคุณภาพ ถ้าไม่มีเอกสารผ่าน $\tau$ เลย $\mathcal R=\varnothing$ แล้ว LLM จะได้รับคำสั่งให้ตอบว่าไม่มีข้อมูล</p>
+<div class="foot"><span>_SIM_THRESHOLD = 0.40</span><span>5 / 8</span></div>
+</section>
+
+<!-- 6 context -->
+<section class="s">
+<div class="tag">STEP 6 · HYBRID MERGE + CONTEXT</div>
+<h1>รวมผลจาก SQL และเวกเตอร์<br>เป็นบริบทเดียว</h1>
+<p>ผลแบบ exact จาก SQL ขึ้นกับ intent (facts = ตาราง company_facts, staff = staff_contacts, $\sigma$ = selection ในพีชคณิตเชิงสัมพันธ์)</p>
+<div class="box eq">$$\mathcal F(I)=\begin{cases}\sigma_{\text{type}=t(q)}(\text{facts}) & I\in\{\text{fact, claim, knowledge}\}\\ \text{staff} & I=\text{staff}\end{cases}$$</div>
+<p>ประกอบ context ด้วยการต่อสตริง (concatenation) ตามลำดับความน่าเชื่อถือ</p>
+<div class="box eq">$$\mathcal C = \text{Facts}\,\Vert\,\text{Staff}\,\Vert\,\text{FAQ}\,\Vert\,\bigl\Vert_{i=1}^{|\mathcal R|}\operatorname{trunc}_{600}(d_i)$$</div>
+<p>โดย $\operatorname{trunc}_{n}(d)=d[0:n]$ และเติม “…” ถ้า $|d|>n$ ขอบเขตของส่วนเอกสารจึงเป็น</p>
+<div class="box eq">$$|\mathcal C_{\text{docs}}|\;\le\;6\times 601 = 3{,}606\ \text{ตัวอักษร}$$</div>
+<p>(ตัวเลือก) AI Reranker จัดลำดับใหม่ด้วยคะแนน $s_i\in[0,1]$ จาก LLM</p>
+<div class="box eq">$$\pi=\operatorname{argsort}_{\downarrow}(s_1,\dots,s_n),\qquad \mathcal R'=(d_{\pi(1)},\dots,d_{\pi(n)})$$</div>
+<div class="foot"><span>_build_context() · _rerank_docs()</span><span>6 / 8</span></div>
+</section>
+
+<!-- 7 LLM -->
+<section class="s">
+<div class="tag">STEP 7 · LLM GENERATION</div>
+<h1>สร้างคำตอบทีละ token<br>แบบ autoregressive</h1>
+<div class="box eq">$$P_\theta(a\mid x)=\prod_{t=1}^{|a|}P_\theta\big(a_t\mid a_{\lt t},\,x\big),\qquad x=S\oplus\mathcal C\oplus q$$</div>
+<p>ในแต่ละชั้นของ Transformer, token จะ “มอง” context ผ่าน self-attention</p>
+<div class="box eq">$$\operatorname{Attn}(Q,K,V)=\operatorname{softmax}\!\Big(\frac{QK^{\top}}{\sqrt{d_k}}\Big)V$$</div>
+<p>token ถัดไปสุ่มจาก softmax ที่ปรับด้วย temperature $T$</p>
+<div class="box eq">$$p_i=\frac{e^{z_i/T}}{\sum_j e^{z_j/T}}$$</div>
+<table>
+<tr><th>logits $z=(2.0,\,1.0,\,0.1)$</th><th>$p_1$</th><th>$p_2$</th><th>$p_3$</th></tr>
+<tr><td>$T=1.0$</td><td>0.659</td><td>0.242</td><td>0.099</td></tr>
+<tr><td>$T=0.5$</td><td>0.864</td><td>0.117</td><td>0.019</td></tr>
+<tr><td>$T\to0$ (greedy)</td><td>1</td><td>0</td><td>0</td></tr>
+</table>
+<p class="mut">ขั้นที่ต้องการผลเดิมทุกครั้ง (intent, rewrite, rerank, grounding) ใช้ $T=0$ ส่วนการตอบแชตใช้ค่า default ของ Ollama · โมเดล qwen2.5:14b-instruct</p>
+<div class="foot"><span>main.py · p.chat(messages)</span><span>7 / 8</span></div>
+</section>
+
+<!-- 8 sources -->
+<section class="s">
+<div class="tag">STEP 8 · SOURCES + GROUNDING</div>
+<h1>แหล่งอ้างอิงและ<br>การตรวจว่าคำตอบมีหลักฐาน</h1>
+<p>แหล่งอ้างอิงที่แสดงคือ URL ไม่ซ้ำ เรียงตามความคล้ายจากมากไปน้อย แล้วตัดเหลือ 5 อันดับ</p>
+<div class="box eq">$$\mathcal S=\operatorname{Top}_5\Big(\operatorname{sort}_{\downarrow\,\operatorname{sim}}\;\operatorname{unique}_{\text{url}}(\mathcal R_{\text{doc}}\cup\mathcal R_{\text{faq}})\Big)$$</div>
+<div class="box eq">$$\text{แสดงผล}=\operatorname{round}\big(100\cdot\operatorname{round}(\operatorname{sim},3)\big)\,\%$$</div>
+<p class="mut">ตัวอย่าง: sim = 0.781 แสดงเป็น 78%</p>
+<p>(ตัวเลือก) Grounding: ให้ LLM ประเมินฟังก์ชันบูลีน</p>
+<div class="box eq">$$g(a,\mathcal C)\in\{0,1\},\qquad a^{\text{final}}=\begin{cases}a & g=1\\ a^{\text{fixed}} & g=0 \,\wedge\, a^{\text{fixed}}\neq\varnothing\end{cases}$$</div>
+<p class="mut">โดยส่ง context ไปตรวจแค่ $\mathcal C[0:4000]$</p>
+<p><b>สรุป end-to-end</b></p>
+<div class="box eq" style="font-size:28px">$$q\xrightarrow{I}\text{intent}\xrightarrow{f}\mathbf q\in\mathbb R^{1024}\xrightarrow{\text{IVF}+\cos}\mathcal R_{6,0.4}\xrightarrow{\Vert}\mathcal C\xrightarrow{P_\theta}a\xrightarrow{g}a^{\text{final}}$$</div>
+<div class="foot"><span>_build_sources() · verify_grounding()</span><span>8 / 8</span></div>
+</section>
+
+<script>renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}],throwOnError:false});</script>
+</body></html>
