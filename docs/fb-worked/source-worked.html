@@ -1,0 +1,228 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8">
+<link rel="stylesheet" href="katex/katex.min.css">
+<script src="katex/katex.min.js"></script>
+<script src="katex/contrib/auto-render.min.js"></script>
+<style>
+:root{--bg:#0f1417;--card:#161e22;--ink:#e8eee9;--mut:#93a39b;--acc:#4cc9a6;--warn:#f0a064;--blue:#86aeea;--line:#2a3530}
+*{box-sizing:border-box}body{margin:0;background:#000}
+.s{width:1080px;min-height:1350px;background:var(--bg);color:var(--ink);font:28px/1.6 "Sarabun","Noto Sans Thai",sans-serif;padding:70px 72px 110px;position:relative;overflow:hidden;margin-bottom:10px}
+.tag{font:600 22px "IBM Plex Mono",monospace;color:var(--acc);letter-spacing:.1em}
+h1{font:700 54px/1.25 "Noto Sans Thai",sans-serif;margin:12px 0 28px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 30px;margin:20px 0}
+.box.eq{font-size:34px;text-align:center;border-color:var(--acc)}
+.mut{color:var(--mut);font-size:25px}
+.warn{color:var(--warn)}.acc{color:var(--acc)}.blue{color:var(--blue)}
+table{width:100%;border-collapse:collapse;font-size:26px}td,th{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mut);font-size:21px}
+.foot{position:absolute;left:72px;right:72px;bottom:44px;display:flex;justify-content:space-between;font:20px "IBM Plex Mono",monospace;color:var(--mut)}
+.katex{font-size:1.05em}
+ul{margin:8px 0;padding-left:30px}li{margin:4px 0}
+</style></head><body>
+<style>.box.eq{font-size:30px}.step{font:600 24px "IBM Plex Mono",monospace;color:var(--warn)}.hl{background:#1f3a31;border-radius:6px;padding:0 6px}td.r{text-align:right}</style>
+
+<!-- 0 setup -->
+<section class="s">
+<div class="tag">WORKED EXAMPLE · แทนค่าทุกขั้น</div>
+<h1>ตามคำถามหนึ่งข้อ<br>ตั้งแต่ส่งจนได้คำตอบ</h1>
+<div class="box" style="font-size:34px;text-align:center;border-color:var(--blue)">$q$ = “<b>ประกันรถยนต์มีกี่ประเภท</b>” &nbsp;<span class="mut">(|q| = 23 ตัวอักษร)</span></div>
+<p><b>สมมติฐานเพื่อให้คำนวณด้วยมือได้</b></p>
+<table>
+<tr><th>พารามิเตอร์</th><th>ของจริง</th><th>ในตัวอย่าง</th></tr>
+<tr><td>มิติเวกเตอร์ $D$</td><td>1,024</td><td class="acc">4</td></tr>
+<tr><td>จำนวน lists ใน IVFFlat $L$</td><td>100</td><td class="acc">3</td></tr>
+<tr><td>จำนวนเอกสาร $N$</td><td>หลักพัน–หมื่น</td><td class="acc">5</td></tr>
+<tr><td>top-k docs / FAQ</td><td>6 / 4</td><td>6 / 4 (เท่าเดิม)</td></tr>
+<tr><td>threshold $\tau$</td><td>0.40</td><td>0.40 (เท่าเดิม)</td></tr>
+<tr><td>trunc ต่อเอกสาร</td><td>600</td><td>600 (เท่าเดิม)</td></tr>
+</table>
+<p class="mut">ค่าเวกเตอร์ ค่า logits และความยาวเอกสารเป็นตัวเลขสมมติที่เลือกให้คิดง่าย แต่ทุกสูตรและทุกขั้นตอนเป็นแบบเดียวกับโค้ดจริง · ผลคำนวณในภาพตรวจด้วย Python แล้ว</p>
+<p><b>เส้นทาง:</b> ① Intent → ② Embed → ③ IVF → ④ Cosine → ⑤ Top-k/τ → ⑥ Context → ⑦ Attention → ⑧ Softmax → ⑨ Sources</p>
+<div class="foot"><span>Enterprise RAG Chat · worked example</span><span>0 / 9</span></div>
+</section>
+
+<!-- 1 intent -->
+<section class="s">
+<div class="tag">① INTENT ROUTER</div>
+<h1>ไล่ตรวจ keyword<br>ตามลำดับ</h1>
+<div class="box eq">$$I(q)=\text{เงื่อนไขแรกที่}\;\exists k\in K:\;k\sqsubseteq \operatorname{lower}(q)$$</div>
+<table>
+<tr><th>ลำดับ</th><th>เซต</th><th>ตรวจ $k \sqsubseteq q$</th><th>ผล</th></tr>
+<tr><td>1</td><td>$K_{\text{staff}}$ (11 คำ)</td><td>ใครดูแล? ทีม? แผนก? … ไม่พบ</td><td class="warn">✗</td></tr>
+<tr><td>2</td><td>$K_{\text{fact}}$ (13 คำ)</td><td>เบอร์? โทร? ที่อยู่? tel? … ไม่พบ</td><td class="warn">✗</td></tr>
+<tr><td>3</td><td>$K_{\text{claim}}$ (6 คำ)</td><td>เคลม? สินไหม? claim? … ไม่พบ</td><td class="warn">✗</td></tr>
+<tr><td>4</td><td>otherwise</td><td>—</td><td class="acc">✓</td></tr>
+</table>
+<div class="box eq">$$I(q)=\textbf{knowledge}$$</div>
+<p>จำนวนการเทียบสูงสุด $= |K|\times|q| = 30\times 23 = 690$ ครั้ง (ระดับไมโครวินาที ไม่ต้องเรียก AI)</p>
+<p>เพราะ $I(q)\in\{\text{fact, claim, knowledge}\}$ จึงค้น company_facts ด้วย SQL ควบคู่ไปด้วย โดย $t(q)=\varnothing$ (ไม่มีคำว่าโทร อีเมล ที่อยู่) จึงดึงทุก fact ของบริษัท</p>
+<div class="box" style="font-size:24px;font-family:'IBM Plex Mono',monospace">SELECT fact_type, fact_value FROM company_facts<br>WHERE company_code='locktonwattana'<br>ORDER BY confidence DESC LIMIT 20;<br><span class="acc">→ 2 แถว: company_name, website</span></div>
+<div class="foot"><span>_detect_intent_rule() · _search_company_facts()</span><span>1 / 9</span></div>
+</section>
+
+<!-- 2 embed -->
+<section class="s">
+<div class="tag">② EMBEDDING + NORMALIZE</div>
+<h1>จากข้อความสู่เวกเตอร์<br>ความยาว 1</h1>
+<p>สมมติโมเดลคืนเวกเตอร์ดิบ $\mathbf u=f(q)=(2,\;1,\;0.5,\;-1)$</p>
+<div class="box eq">$$\|\mathbf u\|=\sqrt{2^2+1^2+0.5^2+(-1)^2}$$
+$$=\sqrt{4+1+0.25+1}=\sqrt{6.25}=2.5$$
+$$\mathbf q=\frac{\mathbf u}{\|\mathbf u\|}=\Big(\tfrac{2}{2.5},\tfrac{1}{2.5},\tfrac{0.5}{2.5},\tfrac{-1}{2.5}\Big)=\boxed{(0.8,\;0.4,\;0.2,\;-0.4)}$$</div>
+<p class="mut">ตรวจ: $0.64+0.16+0.04+0.16=1.00$ ✓ และทุกค่าเป็นจำนวนจำกัด ⇒ valid</p>
+<p><b class="warn">กรณีเกิด NaN</b> (ตัวอย่างข้อความยาว 320 ตัวอักษร)</p>
+<div class="box eq">$$\Big\lceil\tfrac{320}{150}\Big\rceil=3\ \text{ช่วง}$$
+$$\mathbf v_1=(0.6,0.8,0,0),\;\;\mathbf v_2=\text{NaN}\ (\text{ทิ้ง}),\;\;\mathbf v_3=(0.8,0,0.6,0)$$
+$$\bar{\mathbf v}=\tfrac12(\mathbf v_1+\mathbf v_3)=(0.7,\;0.4,\;0.3,\;0)$$
+$$\|\bar{\mathbf v}\|=\sqrt{0.49+0.16+0.09}=\sqrt{0.74}=0.8602$$
+$$\hat{\mathbf q}=(0.814,\;0.465,\;0.349,\;0)$$</div>
+<p class="mut">ช่วงที่เป็น NaN ถูกทิ้ง ส่วนที่เหลือเฉลี่ยแล้ว normalize กลับเป็นความยาว 1 · ในตัวอย่างหลักไม่เกิด NaN จึงใช้ $\mathbf q=(0.8,0.4,0.2,-0.4)$ ต่อ</p>
+<div class="foot"><span>_embed_query() · _is_valid_vec()</span><span>2 / 9</span></div>
+</section>
+
+<!-- 3 IVF -->
+<section class="s">
+<div class="tag">③ IVFFLAT · เลือก LIST</div>
+<h1>เทียบกับ centroid ก่อน<br>แล้วค่อยเปิดกล่องเดียว</h1>
+<p>$\mathbf q=(0.8,\,0.4,\,0.2,\,-0.4)$ เทียบกับ centroid ทั้ง $L=3$</p>
+<table>
+<tr><th>centroid</th><th>$\boldsymbol\mu$</th><th>$\mathbf q\cdot\boldsymbol\mu$</th><th>$\cos$</th></tr>
+<tr><td>$\mu_1$ ประกันภัย</td><td>(0.7, 0.5, 0.1, −0.5)</td><td>0.56+0.20+0.02+0.20 = 0.98</td><td class="acc"><b>0.980</b></td></tr>
+<tr><td>$\mu_2$ ข่าว/องค์กร</td><td>(0.1, −0.3, 0.9, 0.3)</td><td>0.08−0.12+0.18−0.12 = 0.02</td><td>0.020</td></tr>
+<tr><td>$\mu_3$ ติดต่อ</td><td>(−0.2, 0.8, −0.1, 0.55)</td><td>−0.16+0.32−0.02−0.22 = −0.08</td><td>−0.080</td></tr>
+</table>
+<div class="box eq">$$\ell^{*}=\arg\max_\ell\cos(\mathbf q,\boldsymbol\mu_\ell)=1\qquad(\text{probes}=1)$$</div>
+<table>
+<tr><th>list</th><th>สมาชิก</th><th>สถานะ</th></tr>
+<tr><td>$P_1$</td><td>$d_1, d_2, d_3$</td><td class="acc">เปิดเทียบทีละตัว</td></tr>
+<tr><td>$P_2$</td><td>$d_4$ (health), $d_5$ (news)</td><td class="mut">ข้าม</td></tr>
+<tr><td>$P_3$</td><td>—</td><td class="mut">ข้าม</td></tr>
+</table>
+<div class="box eq">$$\text{การคูณ}=\underbrace{3\times4}_{\text{centroids}}+\underbrace{3\times4}_{P_1}=24\quad\text{เทียบกับ exact}\;5\times4=20$$</div>
+<p class="mut">ที่ $N=5$ IVF ยังไม่คุ้ม แต่ที่ $N=10{,}000,\ D=1024,\ L=100$ จะเหลือ 204,800 จาก 10,240,000 (≈50×)</p>
+<div class="foot"><span>ivfflat (vector_cosine_ops)</span><span>3 / 9</span></div>
+</section>
+
+<!-- 4 cosine -->
+<section class="s">
+<div class="tag">④ COSINE SIMILARITY · แทนค่า</div>
+<h1>คำนวณ $\cos\theta$<br>ทีละเอกสารใน $P_1$</h1>
+<div class="box eq">$$\cos\theta=\frac{\sum_i q_i d_i}{\|\mathbf q\|\,\|\mathbf d\|},\qquad \|\mathbf q\|=1$$</div>
+<p><b>$d_1$</b> motor-insurance #1 &nbsp;$=(0.8,\,0.45,\,0.1,\,-0.35)$</p>
+<div class="box eq">$$\mathbf q\cdot\mathbf d_1=0.64+0.18+0.02+0.14=0.98$$
+$$\|\mathbf d_1\|=\sqrt{0.64+0.2025+0.01+0.1225}=\sqrt{0.975}=0.9874$$
+$$\cos\theta_1=\tfrac{0.98}{0.9874}=\mathbf{0.9925}\;\;(\theta_1=7.0^\circ)$$</div>
+<p><b>$d_2$</b> motor-insurance #2 &nbsp;$=(0.9,\,0.1,\,0.3,\,0.3)$</p>
+<div class="box eq">$$\mathbf q\cdot\mathbf d_2=0.72+0.04+0.06-0.12=0.70$$
+$$\|\mathbf d_2\|=\sqrt{1.00}=1\;\Rightarrow\;\cos\theta_2=\mathbf{0.7000}\;(45.6^\circ)$$</div>
+<p><b>$d_3$</b> claims &nbsp;$=(0.5,\,0.6,\,-0.4,\,0.1)$</p>
+<div class="box eq">$$\mathbf q\cdot\mathbf d_3=0.40+0.24-0.08-0.04=0.52$$
+$$\|\mathbf d_3\|=\sqrt{0.78}=0.8832\;\Rightarrow\;\cos\theta_3=\mathbf{0.5888}\;(53.9^\circ)$$</div>
+<p class="mut">ในฐานข้อมูล: similarity $= 1-(\mathbf q \Leftrightarrow \mathbf d)$ เช่น distance ของ $d_1$ = 0.0075 ⇒ 0.9925</p>
+<div class="foot"><span>match_documents() · 1 - (embedding &lt;=&gt; q)</span><span>4 / 9</span></div>
+</section>
+
+<!-- 5 topk -->
+<section class="s">
+<div class="tag">⑤ TOP-K + THRESHOLD</div>
+<h1>เรียง ตัด แล้วกรอง</h1>
+<div class="box eq">$$\mathcal R=\{\,d\in\operatorname{TopK}_{6}:\ \operatorname{sim}\ge0.40\,\}$$</div>
+<p><b>Documents</b> (k = 6 แต่มีผู้สมัครเพียง 3)</p>
+<table>
+<tr><th>อันดับ</th><th>เอกสาร</th><th class="r">sim</th><th>$\ge 0.40$?</th></tr>
+<tr><td>1</td><td>$d_1$ /motor-insurance</td><td class="r">0.9925</td><td class="acc">✓</td></tr>
+<tr><td>2</td><td>$d_2$ /motor-insurance</td><td class="r">0.7000</td><td class="acc">✓</td></tr>
+<tr><td>3</td><td>$d_3$ /claims</td><td class="r">0.5888</td><td class="acc">✓</td></tr>
+</table>
+<p><b>FAQ</b> (k = 4 · คำนวณแบบเดียวกันกับตาราง faq_items)</p>
+<table>
+<tr><th>อันดับ</th><th>FAQ</th><th class="r">sim</th><th>$\ge 0.40$?</th></tr>
+<tr><td>1</td><td>$f_1$ “ประกันรถมีกี่ชั้น”</td><td class="r">0.7400</td><td class="acc">✓</td></tr>
+<tr><td>2</td><td>$f_2$ “ต่ออายุกรมธรรม์อย่างไร”</td><td class="r">0.3500</td><td class="warn">✗ ตัด</td></tr>
+</table>
+<div class="box eq">$$|\mathcal R_{\text{doc}}|=3,\qquad |\mathcal R_{\text{faq}}|=1$$</div>
+<p>ตรวจเชิงเรขาคณิตกับ $f_2$: $\ \arccos(0.35)=69.5^\circ > 66.4^\circ$ อยู่นอกกรวย และ $\|\mathbf q-\mathbf f_2\|^2=2-2(0.35)=1.30>1.2$ ✗</p>
+<div class="foot"><span>_search_documents() · _search_faq()</span><span>5 / 9</span></div>
+</section>
+
+<!-- 6 context -->
+<section class="s">
+<div class="tag">⑥ CONTEXT ASSEMBLY</div>
+<h1>ต่อสตริงและนับความยาว</h1>
+<div class="box eq">$$\mathcal C=\text{Facts}\,\Vert\,\text{FAQ}\,\Vert\,\operatorname{trunc}_{600}(d_1)\,\Vert\,\operatorname{trunc}_{600}(d_3)$$</div>
+<table>
+<tr><th>ส่วน</th><th>ความยาวเดิม</th><th>หลังประมวลผล</th></tr>
+<tr><td>## ข้อมูลบริษัท (2 facts)</td><td>—</td><td class="r">95</td></tr>
+<tr><td>## คำถามที่พบบ่อย ($f_1$)</td><td>—</td><td class="r">180</td></tr>
+<tr><td>$d_1$ [motor — ประเภทประกัน]</td><td>850</td><td class="r">600 + “…” = 601</td></tr>
+<tr><td>$d_2$ [motor — ประเภทประกัน]</td><td>720</td><td class="r"><span class="warn">ข้าม (label ซ้ำ)</span></td></tr>
+<tr><td>$d_3$ [claims — ขั้นตอนเคลม]</td><td>420</td><td class="r">420</td></tr>
+</table>
+<p>$d_2$ มี title และ heading เดียวกับ $d_1$ จึงถูกข้ามด้วยเซต <code>seen</code> กันเนื้อหาซ้ำ</p>
+<div class="box eq">$$|\mathcal C_{\text{docs}}|=601+420=1{,}021\ \le\ 3{,}606$$
+$$|\mathcal C|\approx95+180+1{,}021+\text{หัวข้อ/ขึ้นบรรทัด}\approx1{,}350\ \text{ตัวอักษร}$$</div>
+<p>จากนั้นประกอบข้อความเข้า LLM</p>
+<div class="box eq">$$x=\underbrace{S}_{\text{system prompt}}\oplus\;\mathcal C\;\oplus\underbrace{q}_{\text{user}}$$</div>
+<div class="foot"><span>_build_context() · main.py chat()</span><span>6 / 9</span></div>
+</section>
+
+<!-- 7 attention -->
+<section class="s">
+<div class="tag">⑦ SELF-ATTENTION · แทนค่า</div>
+<h1>token “อ่าน” context<br>ด้วย attention</h1>
+<p>ย่อให้เหลือ query 1 ตัว key/value 3 ตัว $d_k=4$ (ในโมเดลจริงมีหลายพันมิติ หลายหัว หลายชั้น)</p>
+<div class="box eq">$$Q=(1,0,1,0)\quad K=\begin{pmatrix}1&0&1&0\\0&1&0&1\\1&1&0&0\end{pmatrix}\quad V=\begin{pmatrix}1&0\\0&1\\0.5&0.5\end{pmatrix}$$</div>
+<p><b>1) Scaled dot-product</b> $\ \sqrt{d_k}=2$</p>
+<div class="box eq">$$\frac{QK^\top}{\sqrt{d_k}}=\Big(\tfrac{2}{2},\ \tfrac{0}{2},\ \tfrac{1}{2}\Big)=(1.0,\ 0.0,\ 0.5)$$</div>
+<p><b>2) Softmax</b></p>
+<div class="box eq">$$(e^{1},e^{0},e^{0.5})=(2.718,\ 1.000,\ 1.649),\quad\Sigma=5.367$$
+$$\alpha=(0.506,\ 0.186,\ 0.307)$$</div>
+<p><b>3) ผลรวมถ่วงน้ำหนัก</b></p>
+<div class="box eq">$$\alpha V=0.506(1,0)+0.186(0,1)+0.307(0.5,0.5)=(0.66,\ 0.34)$$</div>
+<p class="mut">key ที่ “ตรง” กับ query มากที่สุด (แถว 1) ได้น้ำหนักสูงสุด 50.6% คือวิธีที่โมเดลดึงข้อมูลจาก context มาใช้ตอบ</p>
+<div class="foot"><span>Transformer · qwen2.5:14b-instruct</span><span>7 / 9</span></div>
+</section>
+
+<!-- 8 softmax -->
+<section class="s">
+<div class="tag">⑧ NEXT-TOKEN SOFTMAX</div>
+<h1>เลือกคำแรกของคำตอบ</h1>
+<p>สมมติ logits ของ token ผู้สมัคร 4 ตัว</p>
+<table>
+<tr><th>token</th><th class="r">$z$</th><th class="r">$e^{z}$ (T=1)</th><th class="r">$p$ (T=1)</th><th class="r">$e^{z/0.5}$</th><th class="r">$p$ (T=0.5)</th></tr>
+<tr><td>“ประกัน”</td><td class="r">3.2</td><td class="r">24.533</td><td class="r acc"><b>0.710</b></td><td class="r">601.845</td><td class="r acc"><b>0.897</b></td></tr>
+<tr><td>“รถยนต์”</td><td class="r">2.1</td><td class="r">8.166</td><td class="r">0.236</td><td class="r">66.686</td><td class="r">0.099</td></tr>
+<tr><td>“ไม่”</td><td class="r">0.4</td><td class="r">1.492</td><td class="r">0.043</td><td class="r">2.226</td><td class="r">0.003</td></tr>
+<tr><td>“สวัสดี”</td><td class="r">−1.0</td><td class="r">0.368</td><td class="r">0.011</td><td class="r">0.135</td><td class="r">0.000</td></tr>
+<tr><td><b>Σ</b></td><td></td><td class="r">34.558</td><td class="r">1.000</td><td class="r">670.892</td><td class="r">1.000</td></tr>
+</table>
+<div class="box eq">$$p_1=\frac{e^{3.2}}{34.558}=\frac{24.533}{34.558}=0.710$$</div>
+<p>ลด $T$ แล้วการกระจายแหลมขึ้น: 0.710 → 0.897 · ถ้า $T\to0$ จะได้ “ประกัน” เสมอ (greedy)</p>
+<p><b>วนซ้ำแบบ autoregressive</b></p>
+<div class="box eq">$$P(a\mid x)=P(a_1\mid x)\,P(a_2\mid a_1,x)\cdots$$
+$$=0.710\times P(a_2\mid\text{“ประกัน”},x)\times\cdots$$</div>
+<p class="mut">ทำจนเจอ token จบประโยค ได้ $a$ = “ประกันภัยรถยนต์แบ่งเป็น 5 ประเภท ได้แก่ ชั้น 1, 2, 2+, 3, 3+ …”</p>
+<div class="foot"><span>Ollama /api/chat</span><span>8 / 9</span></div>
+</section>
+
+<!-- 9 sources -->
+<section class="s">
+<div class="tag">⑨ SOURCES + GROUNDING → ANSWER</div>
+<h1>สร้างรายการอ้างอิง<br>และส่งคำตอบกลับ</h1>
+<p><b>1) รวม doc + FAQ แล้วตัด URL ซ้ำ</b></p>
+<table>
+<tr><th>ผลลัพธ์</th><th>url</th><th class="r">round(sim, 3)</th><th>สถานะ</th></tr>
+<tr><td>$d_1$</td><td>/motor-insurance</td><td class="r">0.993</td><td class="acc">เก็บ</td></tr>
+<tr><td>$d_2$</td><td>/motor-insurance</td><td class="r">0.700</td><td class="warn">URL ซ้ำ ✗</td></tr>
+<tr><td>$d_3$</td><td>/claims</td><td class="r">0.589</td><td class="acc">เก็บ</td></tr>
+<tr><td>$f_1$</td><td>/faq</td><td class="r">0.740</td><td class="acc">เก็บ</td></tr>
+</table>
+<p><b>2) เรียงจากมากไปน้อย ตัดที่ 5 และแปลงเป็น %</b></p>
+<div class="box eq">$$\mathcal S=\big(\,0.993\to\mathbf{99\%},\ \ 0.740\to\mathbf{74\%},\ \ 0.589\to\mathbf{59\%}\,\big)$$</div>
+<p class="mut">$\operatorname{round}(100\times0.993)=\operatorname{round}(99.3)=99$</p>
+<p><b>3) Grounding</b> (ถ้าเปิด flag)</p>
+<div class="box eq">$$g(a,\ \mathcal C[0{:}4000])=1\;\Rightarrow\;a^{\text{final}}=a$$</div>
+<p><b>4) Response</b></p>
+<div class="box" style="font:22px/1.5 'IBM Plex Mono',monospace">{ "answer": "ประกันภัยรถยนต์แบ่งเป็น 5 ประเภท …",<br>&nbsp;&nbsp;"sources": [ {motor-insurance, 0.993},<br>&nbsp;&nbsp;&nbsp;&nbsp;{faq, 0.74}, {claims, 0.589} ] }</div>
+<div class="foot"><span>_build_sources() · verify_grounding()</span><span>9 / 9</span></div>
+</section>
+
+<script>renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}],throwOnError:false});</script>
+</body></html>
